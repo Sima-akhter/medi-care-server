@@ -70,7 +70,7 @@ exports.createReview = asyncHandler(async (req, res, next) => {
 
   await doctorsCollection.updateOne(
     { _id: new ObjectId(doctorId) },
-    { $set: { rating: roundedRating, ratingCount } }
+    { $set: { rating: roundedRating, ratingCount, totalReviews: ratingCount } }
   );
 
   res.status(201).json({
@@ -148,7 +148,7 @@ exports.updateReview = asyncHandler(async (req, res, next) => {
 
   await doctorsCollection.updateOne(
     { _id: review.doctorId },
-    { $set: { rating: roundedRating, ratingCount } }
+    { $set: { rating: roundedRating, ratingCount, totalReviews: ratingCount } }
   );
 
   const updatedReview = await reviewsCollection.findOne({ _id: new ObjectId(id) });
@@ -191,7 +191,7 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
 
   await doctorsCollection.updateOne(
     { _id: review.doctorId },
-    { $set: { rating: roundedRating, ratingCount } }
+    { $set: { rating: roundedRating, ratingCount, totalReviews: ratingCount } }
   );
 
   res.status(200).json({

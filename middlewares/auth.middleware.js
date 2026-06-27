@@ -22,6 +22,7 @@ const verifyToken = asyncHandler(async (req, res, next) => {
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET || 'medicare-secret-key-xyz-987');
+    console.log("DEBUG: decoded token ->", decoded);
   } catch (err) {
     return next(new AppError('Session expired or invalid token. Please log in again.', 401));
   }
@@ -44,12 +45,15 @@ const verifyToken = asyncHandler(async (req, res, next) => {
     role: user.role, // 'admin', 'doctor', 'patient'
     status: user.status
   };
+  console.log("DEBUG: req.user payload ->", req.user);
 
   next();
 });
 
 const verifyAdmin = (req, res, next) => {
+  console.log("DEBUG: verifyAdmin checking req.user ->", req.user);
   if (!req.user || req.user.role !== 'admin') {
+    console.log("DEBUG: verifyAdmin failed. User role is ->", req.user?.role);
     return next(new AppError('Forbidden: Access is restricted to Administrators only.', 403));
   }
   next();

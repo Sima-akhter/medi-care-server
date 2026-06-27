@@ -10,6 +10,7 @@ exports.getAllDoctors = asyncHandler(async (req, res, next) => {
   const { search, specialization, sortBy, order, page = 1, limit = 10, status } = req.query;
 
   const query = {};
+  const conditions = [];
 
   // For public endpoints, default to verified doctors.
   // Admins can search by passing a custom status.
@@ -17,24 +18,31 @@ exports.getAllDoctors = asyncHandler(async (req, res, next) => {
     if (status === 'all') {
       // Do not filter by status at all
     } else if (status === 'verified' || status === 'approved') {
-      query.$or = [ { status: 'approved' }, { verificationStatus: 'verified' } ];
+      conditions.push({ $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ] });
     } else {
-      query.$or = [ { status: status }, { verificationStatus: status } ];
+      conditions.push({ $or: [ { status: status }, { verificationStatus: status } ] });
     }
   } else {
-    query.$or = [ { status: 'approved' }, { verificationStatus: 'verified' } ];
+    conditions.push({ $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ] });
   }
 
   // Name or specialization search
   if (search) {
-    query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { specialization: { $regex: search, $options: 'i' } }
-    ];
+    conditions.push({
+      $or: [
+        { name: { $regex: search, $options: 'i' } },
+        { doctorName: { $regex: search, $options: 'i' } },
+        { specialization: { $regex: search, $options: 'i' } }
+      ]
+    });
   }
 
   if (specialization) {
-    query.specialization = { $regex: specialization, $options: 'i' };
+    conditions.push({ specialization: { $regex: specialization, $options: 'i' } });
+  }
+
+  if (conditions.length > 0) {
+    query.$and = conditions;
   }
 
   // Sorting setup
@@ -130,7 +138,18 @@ exports.createDoctorProfile = asyncHandler(async (req, res, next) => {
 // Update Doctor Profile
 exports.updateDoctorProfile = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
-  const { name, specialization, experience, fee, bio } = req.body;
+  const { 
+    name, 
+    doctorName,
+    specialization, 
+    qualifications, 
+    experience, 
+    fee, 
+    consultationFee,
+    hospitalName,
+    profileImage,
+    bio 
+  } = req.body;
 
   if (!ObjectId.isValid(id)) {
     return next(new AppError('Invalid Doctor ID format.', 400));
@@ -149,11 +168,23 @@ exports.updateDoctorProfile = asyncHandler(async (req, res, next) => {
   }
 
   const updateData = {};
-  if (name) updateData.name = name;
+  const resolvedName = name || doctorName;
+  if (resolvedName) {
+    updateData.name = resolvedName;
+    updateData.doctorName = resolvedName;
+  }
   if (specialization) updateData.specialization = specialization;
+  if (qualifications) updateData.qualifications = qualifications;
   if (experience) updateData.experience = Number(experience);
-  if (fee) updateData.fee = Number(fee);
-  if (bio) updateData.bio = bio;
+  
+  const resolvedFee = fee || consultationFee;
+  if (resolvedFee !== undefined) {
+    updateData.fee = Number(resolvedFee);
+    updateData.consultationFee = Number(resolvedFee);
+  }
+  if (hospitalName) updateData.hospitalName = hospitalName;
+  if (profileImage) updateData.profileImage = profileImage;
+  if (bio !== undefined) updateData.bio = bio;
 
   updateData.updatedAt = new Date();
 
@@ -164,12 +195,19 @@ exports.updateDoctorProfile = asyncHandler(async (req, res, next) => {
 
   const updatedDoctor = await doctorsCollection.findOne({ _id: new ObjectId(id) });
 
-  // Update associated user record as well if name changes
-  if (name) {
+  // Update associated user record as well if name or photo changes
+  if (resolvedName || profileImage) {
     const usersCollection = getUsersCollection();
+    const userUpdate = {};
+    if (resolvedName) userUpdate.name = resolvedName;
+    if (profileImage) {
+      userUpdate.photo = profileImage;
+      userUpdate.image = profileImage; // for Better Auth
+    }
+    const resolvedUserId = ObjectId.isValid(doctor.userId) ? new ObjectId(doctor.userId) : doctor.userId;
     await usersCollection.updateOne(
-      { _id: doctor.userId },
-      { $set: { name } }
+      { _id: resolvedUserId },
+      { $set: userUpdate }
     );
   }
 
@@ -227,16 +265,17 @@ exports.updateDoctorStatus = asyncHandler(async (req, res, next) => {
   );
 
   const usersCollection = getUsersCollection();
+  const resolvedUserId = ObjectId.isValid(doctor.userId) ? new ObjectId(doctor.userId) : doctor.userId;
   if (mappedStatus === 'approved') {
     // Elevate user role to doctor
     await usersCollection.updateOne(
-      { _id: doctor.userId },
+      { _id: resolvedUserId },
       { $set: { role: 'doctor' } }
     );
   } else {
     // Revert user role to patient if rejected or reset
     await usersCollection.updateOne(
-      { _id: doctor.userId },
+      { _id: resolvedUserId },
       { $set: { role: 'patient' } }
     );
   }
@@ -269,8 +308,9 @@ exports.deleteDoctor = asyncHandler(async (req, res, next) => {
 
   // Demote associated user
   const usersCollection = getUsersCollection();
+  const resolvedUserId = ObjectId.isValid(doctor.userId) ? new ObjectId(doctor.userId) : doctor.userId;
   await usersCollection.updateOne(
-    { _id: doctor.userId },
+    { _id: resolvedUserId },
     { $set: { role: 'patient' } }
   );
 

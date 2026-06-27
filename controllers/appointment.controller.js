@@ -61,7 +61,13 @@ exports.getAppointments = asyncHandler(async (req, res, next) => {
   } else if (req.user.role === 'doctor') {
     // Doctors can only see appointments booked with them
     const doctorsCollection = getDoctorsCollection();
-    const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+    const doctorQuery = {
+      $or: [
+        ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+        { userId: req.user.id }
+      ]
+    };
+    const doctor = await doctorsCollection.findOne(doctorQuery);
     if (!doctor) {
       return next(new AppError('Doctor profile not found for this user account.', 404));
     }
@@ -111,7 +117,13 @@ exports.updateAppointmentStatus = asyncHandler(async (req, res, next) => {
   // If a doctor is updating, verify they are indeed the doctor assigned
   if (req.user.role === 'doctor') {
     const doctorsCollection = getDoctorsCollection();
-    const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+    const doctorQuery = {
+      $or: [
+        ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+        { userId: req.user.id }
+      ]
+    };
+    const doctor = await doctorsCollection.findOne(doctorQuery);
     if (!doctor || appointment.doctorId.toString() !== doctor._id.toString()) {
       return next(new AppError('You do not have permission to modify this appointment.', 403));
     }

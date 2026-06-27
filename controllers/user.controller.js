@@ -35,7 +35,13 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   const usersCollection = getUsersCollection();
   const userId = req.user.id;
 
-  const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  const userQuery = {
+    $or: [
+      ...(ObjectId.isValid(userId) ? [{ _id: new ObjectId(userId) }] : []),
+      { _id: userId }
+    ]
+  };
+  const user = await usersCollection.findOne(userQuery);
   if (!user) {
     return next(new AppError('No user found with this ID.', 404));
   }
@@ -56,12 +62,18 @@ exports.updateMe = asyncHandler(async (req, res, next) => {
     return next(new AppError('Name field is required.', 400));
   }
 
+  const userQuery = {
+    $or: [
+      ...(ObjectId.isValid(userId) ? [{ _id: new ObjectId(userId) }] : []),
+      { _id: userId }
+    ]
+  };
   await usersCollection.updateOne(
-    { _id: new ObjectId(userId) },
+    userQuery,
     { $set: { name, updatedAt: new Date() } }
   );
 
-  const updatedUser = await usersCollection.findOne({ _id: new ObjectId(userId) });
+  const updatedUser = await usersCollection.findOne(userQuery);
 
   res.status(200).json({
     success: true,

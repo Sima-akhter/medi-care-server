@@ -50,10 +50,16 @@ exports.getPatientDashboard = asyncHandler(async (req, res, next) => {
 
 // Doctor dashboard summary (Doctor only)
 exports.getDoctorDashboard = asyncHandler(async (req, res, next) => {
-  const userId = new ObjectId(req.user.id);
-  
   const doctorsCol = getDoctorsCollection();
-  const doctor = await doctorsCol.findOne({ userId });
+  
+  const doctorQuery = {
+    $or: [
+      ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+      { userId: req.user.id }
+    ]
+  };
+  
+  const doctor = await doctorsCol.findOne(doctorQuery);
   if (!doctor) {
     return next(new AppError('Doctor profile not found for this user account.', 404));
   }
@@ -91,9 +97,8 @@ exports.getDoctorDashboard = asyncHandler(async (req, res, next) => {
     success: true,
     data: {
       doctor: {
-        id: doctor._id.toString(),
-        status: doctor.status,
-        verificationStatus: doctor.verificationStatus || doctor.status
+        ...doctor,
+        id: doctor._id.toString()
       },
       stats: {
         totalAppointments,
@@ -165,12 +170,12 @@ exports.getAdminDashboard = asyncHandler(async (req, res, next) => {
       statusBreakdown,
       doctorPerformance: doctorPerformance.map(doc => ({
         id: doc._id,
-        name: doc.name,
-        specialization: doc.specialization,
-        rating: doc.rating,
-        ratingCount: doc.ratingCount,
-        experience: doc.experience,
-        fee: doc.fee
+        name: doc.name || doc.doctorName || 'Unregistered Doctor',
+        specialization: doc.specialization || 'General Medicine',
+        rating: doc.rating || 0,
+        ratingCount: doc.ratingCount || doc.totalReviews || 0,
+        experience: doc.experience || 0,
+        fee: doc.fee || doc.consultationFee || 0
       }))
     }
   });

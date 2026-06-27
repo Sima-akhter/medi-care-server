@@ -25,7 +25,13 @@ exports.createPrescription = asyncHandler(async (req, res, next) => {
 
   // 2. Fetch doctor profile associated with logged in user
   const doctorsCollection = getDoctorsCollection();
-  const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+  const doctorQuery = {
+    $or: [
+      ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+      { userId: req.user.id }
+    ]
+  };
+  const doctor = await doctorsCollection.findOne(doctorQuery);
 
   if (!doctor || appointment.doctorId.toString() !== doctor._id.toString()) {
     return next(new AppError('You do not have permission to prescribe for this appointment.', 403));
@@ -69,7 +75,13 @@ exports.getPrescriptions = asyncHandler(async (req, res, next) => {
     filter.patientEmail = req.user.email;
   } else if (req.user.role === 'doctor') {
     const doctorsCollection = getDoctorsCollection();
-    const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+    const doctorQuery = {
+      $or: [
+        ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+        { userId: req.user.id }
+      ]
+    };
+    const doctor = await doctorsCollection.findOne(doctorQuery);
     if (!doctor) {
       return next(new AppError('Doctor profile not found.', 404));
     }
@@ -108,7 +120,13 @@ exports.getPrescriptionById = asyncHandler(async (req, res, next) => {
 
   if (req.user.role === 'doctor') {
     const doctorsCollection = getDoctorsCollection();
-    const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+    const doctorQuery = {
+      $or: [
+        ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+        { userId: req.user.id }
+      ]
+    };
+    const doctor = await doctorsCollection.findOne(doctorQuery);
     if (!doctor || prescription.doctorId.toString() !== doctor._id.toString()) {
       return next(new AppError('Forbidden: Access is denied.', 403));
     }
@@ -138,7 +156,13 @@ exports.updatePrescription = asyncHandler(async (req, res, next) => {
 
   // Fetch doctor profile associated with logged in user
   const doctorsCollection = getDoctorsCollection();
-  const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+  const doctorQuery = {
+    $or: [
+      ...(ObjectId.isValid(req.user.id) ? [{ userId: new ObjectId(req.user.id) }] : []),
+      { userId: req.user.id }
+    ]
+  };
+  const doctor = await doctorsCollection.findOne(doctorQuery);
 
   if (!doctor || prescription.doctorId.toString() !== doctor._id.toString()) {
     return next(new AppError('You do not have permission to update this prescription.', 403));

@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/appError');
-const { getUsersCollection } = require('../config/db');
+const { getUsersCollection, getDoctorsCollection } = require('../config/db');
 
 exports.createToken = asyncHandler(async (req, res, next) => {
   const { 
@@ -22,8 +22,9 @@ exports.createToken = asyncHandler(async (req, res, next) => {
     return next(new AppError('Email is required to generate a token.', 400));
   }
 
+  const normalizedEmail = email.toLowerCase();
   const usersCollection = getUsersCollection();
-  let user = await usersCollection.findOne({ email });
+  let user = await usersCollection.findOne({ email: normalizedEmail });
 
   const resolvedRole = role || 'patient';
 
@@ -31,7 +32,7 @@ exports.createToken = asyncHandler(async (req, res, next) => {
     // If the user doesn't exist, auto-create a profile (social sign-on integration)
     const newUser = {
       name: name || 'New Patient',
-      email,
+      email: normalizedEmail,
       role: resolvedRole,
       status: 'active',
       phone: phone || '',
@@ -44,7 +45,12 @@ exports.createToken = asyncHandler(async (req, res, next) => {
   } else {
     // Update user document custom fields if they exist in the request
     const updateFields = {};
-    if (role) updateFields.role = resolvedRole;
+    
+    // Safety check: Never demote admin or doctor roles to patient
+    if (role && role !== 'patient' && user.role === 'patient') {
+      updateFields.role = role;
+    }
+    
     if (phone) updateFields.phone = phone;
     if (gender) updateFields.gender = gender;
     if (photo) updateFields.photo = photo;
