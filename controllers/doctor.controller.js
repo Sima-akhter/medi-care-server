@@ -18,12 +18,12 @@ exports.getAllDoctors = asyncHandler(async (req, res, next) => {
     if (status === 'all') {
       // Do not filter by status at all
     } else if (status === 'verified' || status === 'approved') {
-      conditions.push({ $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ] });
+      conditions.push({ verificationStatus: 'verified' });
     } else {
-      conditions.push({ $or: [ { status: status }, { verificationStatus: status } ] });
+      conditions.push({ verificationStatus: status });
     }
   } else {
-    conditions.push({ $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ] });
+    conditions.push({ verificationStatus: 'verified' });
   }
 
   // Name or specialization search
@@ -122,7 +122,10 @@ exports.createDoctorProfile = asyncHandler(async (req, res, next) => {
     bio: bio || '',
     rating: 0,
     ratingCount: 0,
-    status: 'pending', // default pending admin approval
+    totalReviews: 0,
+    doctorName: name,
+    status: 'pending',
+    verificationStatus: 'pending',
     createdAt: new Date()
   };
 
@@ -317,5 +320,93 @@ exports.deleteDoctor = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: 'Doctor profile deleted successfully and associated user role reset to patient.'
+  });
+});
+
+// Verify doctor status (Admin only)
+exports.verifyDoctor = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid Doctor ID format.', 400));
+  }
+
+  const doctorsCollection = getDoctorsCollection();
+  const doctor = await doctorsCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!doctor) {
+    return next(new AppError('Doctor profile not found.', 404));
+  }
+
+  // Update status and verificationStatus in doctors collection
+  await doctorsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { 
+      $set: { 
+        status: 'approved', 
+        verificationStatus: 'verified', 
+        updatedAt: new Date() 
+      } 
+    }
+  );
+
+  // Elevate associated user role to doctor
+  const usersCollection = getUsersCollection();
+  const resolvedUserId = ObjectId.isValid(doctor.userId) ? new ObjectId(doctor.userId) : doctor.userId;
+  await usersCollection.updateOne(
+    { _id: resolvedUserId },
+    { $set: { role: 'doctor' } }
+  );
+
+  const updatedDoctor = await doctorsCollection.findOne({ _id: new ObjectId(id) });
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor verified successfully.',
+    data: updatedDoctor
+  });
+});
+
+// Reject doctor status (Admin only)
+exports.rejectDoctor = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid Doctor ID format.', 400));
+  }
+
+  const doctorsCollection = getDoctorsCollection();
+  const doctor = await doctorsCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!doctor) {
+    return next(new AppError('Doctor profile not found.', 404));
+  }
+
+  // Update status and verificationStatus in doctors collection
+  await doctorsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { 
+      $set: { 
+        status: 'rejected', 
+        verificationStatus: 'rejected', 
+        updatedAt: new Date() 
+      } 
+    }
+  );
+
+  // Revert associated user role to patient
+  const usersCollection = getUsersCollection();
+  const resolvedUserId = ObjectId.isValid(doctor.userId) ? new ObjectId(doctor.userId) : doctor.userId;
+  await usersCollection.updateOne(
+    { _id: resolvedUserId },
+    { $set: { role: 'patient' } }
+  );
+
+  const updatedDoctor = await doctorsCollection.findOne({ _id: new ObjectId(id) });
+
+  res.status(200).json({
+    success: true,
+    message: 'Doctor rejected successfully.',
+    data: updatedDoctor
   });
 });

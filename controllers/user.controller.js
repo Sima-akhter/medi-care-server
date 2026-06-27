@@ -91,6 +91,10 @@ exports.updateUserStatusRole = asyncHandler(async (req, res, next) => {
     return next(new AppError('Invalid user ID format.', 400));
   }
 
+  if (req.user.id === id && status === 'blocked') {
+    return next(new AppError('You cannot block or suspend your own administrator account.', 400));
+  }
+
   const usersCollection = getUsersCollection();
   const updateData = {};
   

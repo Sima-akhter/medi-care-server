@@ -12,6 +12,8 @@ router.put('/:id', verifyToken, doctorController.updateDoctorProfile);
 
 // Admin-only management
 router.patch('/:id/status', verifyToken, verifyAdmin, doctorController.updateDoctorStatus);
+router.patch('/:id/verify', verifyToken, verifyAdmin, doctorController.verifyDoctor);
+router.patch('/:id/reject', verifyToken, verifyAdmin, doctorController.rejectDoctor);
 router.delete('/:id', verifyToken, verifyAdmin, doctorController.deleteDoctor);
 
 module.exports = router;

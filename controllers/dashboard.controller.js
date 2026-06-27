@@ -133,7 +133,7 @@ exports.getAdminDashboard = asyncHandler(async (req, res, next) => {
 
   // 3. Top performing doctors (Based on rating & experience)
   const doctorPerformance = await doctorsCol.find({
-    $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ]
+    verificationStatus: 'verified'
   })
     .sort({ rating: -1, experience: -1 })
     .limit(10)
@@ -189,7 +189,7 @@ exports.getPublicStats = asyncHandler(async (req, res, next) => {
   const reviewsCol = getReviewsCollection();
 
   const totalDoctors = await doctorsCol.countDocuments({
-    $or: [ { status: 'approved' }, { verificationStatus: 'verified' } ]
+    verificationStatus: 'verified'
   });
   const totalPatients = await usersCol.countDocuments({ role: 'patient' });
   const totalAppointments = await appointmentsCol.countDocuments();
