@@ -168,3 +168,26 @@ exports.getAdminDashboard = asyncHandler(async (req, res, next) => {
     }
   });
 });
+
+// Public platform statistics
+exports.getPublicStats = asyncHandler(async (req, res, next) => {
+  const usersCol = getUsersCollection();
+  const doctorsCol = getDoctorsCollection();
+  const appointmentsCol = getAppointmentsCollection();
+  const reviewsCol = getReviewsCollection();
+
+  const totalDoctors = await doctorsCol.countDocuments({ status: 'approved' });
+  const totalPatients = await usersCol.countDocuments({ role: 'patient' });
+  const totalAppointments = await appointmentsCol.countDocuments();
+  const totalReviews = await reviewsCol.countDocuments();
+
+  res.status(200).json({
+    success: true,
+    data: {
+      totalDoctors,
+      totalPatients,
+      totalAppointments,
+      totalReviews
+    }
+  });
+});

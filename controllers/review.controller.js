@@ -199,3 +199,13 @@ exports.deleteReview = asyncHandler(async (req, res, next) => {
     message: 'Review deleted successfully.'
   });
 });
+
+// Get all reviews (Public for testimonials)
+exports.getAllReviews = asyncHandler(async (req, res, next) => {
+  const reviewsCollection = getReviewsCollection();
+  const reviews = await reviewsCollection.find().sort({ createdAt: -1 }).limit(10).toArray();
+  res.status(200).json({
+    success: true,
+    data: reviews
+  });
+});
