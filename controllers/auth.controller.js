@@ -4,7 +4,19 @@ const AppError = require('../utils/appError');
 const { getUsersCollection } = require('../config/db');
 
 exports.createToken = asyncHandler(async (req, res, next) => {
-  const { email, name, role } = req.body;
+  const { 
+    email, 
+    name, 
+    role, 
+    phone, 
+    gender, 
+    photo, 
+    specialization, 
+    qualifications, 
+    experience, 
+    fee, 
+    hospitalName 
+  } = req.body;
 
   if (!email) {
     return next(new AppError('Email is required to generate a token.', 400));
@@ -13,21 +25,78 @@ exports.createToken = asyncHandler(async (req, res, next) => {
   const usersCollection = getUsersCollection();
   let user = await usersCollection.findOne({ email });
 
+  const resolvedRole = role || 'patient';
+
   if (!user) {
-    // If the user doesn't exist, auto-create a profile (useful for social sign-on integration)
+    // If the user doesn't exist, auto-create a profile (social sign-on integration)
     const newUser = {
       name: name || 'New Patient',
       email,
-      role: role || 'patient', // defaults to patient role
+      role: resolvedRole,
       status: 'active',
+      phone: phone || '',
+      gender: gender || 'Other',
+      photo: photo || '',
       createdAt: new Date()
     };
     const result = await usersCollection.insertOne(newUser);
     user = { ...newUser, _id: result.insertedId };
+  } else {
+    // Update user document custom fields if they exist in the request
+    const updateFields = {};
+    if (role) updateFields.role = resolvedRole;
+    if (phone) updateFields.phone = phone;
+    if (gender) updateFields.gender = gender;
+    if (photo) updateFields.photo = photo;
+    if (name) updateFields.name = name;
+    
+    if (Object.keys(updateFields).length > 0) {
+      await usersCollection.updateOne(
+        { _id: user._id },
+        { $set: updateFields }
+      );
+      user = { ...user, ...updateFields };
+    }
   }
 
   if (user.status === 'blocked') {
     return next(new AppError('Your account has been blocked.', 403));
+  }
+
+  // Create doctor profile if role is doctor
+  if (user.role === 'doctor') {
+    const doctorsCollection = getDoctorsCollection();
+    const existingDoctor = await doctorsCollection.findOne({ email: user.email });
+    
+    if (!existingDoctor) {
+      const docFee = Number(fee) || 0;
+      const docExp = Number(experience) || 0;
+
+      const newDoctor = {
+        userId: user._id,
+        name: user.name, // backward compatibility
+        doctorName: user.name, // prompt compliance
+        email: user.email,
+        specialization: specialization || 'General Medicine',
+        qualifications: qualifications || 'MBBS',
+        experience: docExp,
+        fee: docFee, // backward compatibility
+        consultationFee: docFee, // prompt compliance
+        hospitalName: hospitalName || 'General Hospital',
+        profileImage: user.photo || '',
+        availableDays: [],
+        availableSlots: [],
+        status: 'pending', // backward compatibility
+        verificationStatus: 'pending', // prompt compliance
+        rating: 0,
+        ratingCount: 0, // backward compatibility
+        totalReviews: 0, // prompt compliance
+        bio: '',
+        createdAt: new Date()
+      };
+
+      await doctorsCollection.insertOne(newDoctor);
+    }
   }
 
   // Create standard JWT token
@@ -40,8 +109,8 @@ exports.createToken = asyncHandler(async (req, res, next) => {
   // Set httpOnly secure cookie
   res.cookie('token', token, {
     httpOnly: true,
-    secure: true, // true to allow sameSite: 'none' and secure context
-    sameSite: 'none', // Allow cross-origin cookie sharing
+    secure: true,
+    sameSite: 'none',
     maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
   });
 

@@ -11,12 +11,18 @@ exports.getAllDoctors = asyncHandler(async (req, res, next) => {
 
   const query = {};
 
-  // For public endpoints, default to approved doctors.
+  // For public endpoints, default to verified doctors.
   // Admins can search by passing a custom status.
   if (status) {
-    query.status = status;
+    if (status === 'all') {
+      // Do not filter by status at all
+    } else if (status === 'verified' || status === 'approved') {
+      query.$or = [ { status: 'approved' }, { verificationStatus: 'verified' } ];
+    } else {
+      query.$or = [ { status: status }, { verificationStatus: status } ];
+    }
   } else {
-    query.status = 'approved';
+    query.$or = [ { status: 'approved' }, { verificationStatus: 'verified' } ];
   }
 
   // Name or specialization search
@@ -179,8 +185,9 @@ exports.updateDoctorStatus = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
-    return next(new AppError('Please provide a valid status: pending, approved, or rejected.', 400));
+  const validStatuses = ['pending', 'approved', 'rejected', 'verified'];
+  if (!status || !validStatuses.includes(status)) {
+    return next(new AppError('Please provide a valid status value.', 400));
   }
 
   if (!ObjectId.isValid(id)) {
@@ -194,13 +201,33 @@ exports.updateDoctorStatus = asyncHandler(async (req, res, next) => {
     return next(new AppError('Doctor profile not found.', 404));
   }
 
+  let mappedStatus = status;
+  let mappedVerificationStatus = status;
+
+  if (status === 'approved' || status === 'verified') {
+    mappedStatus = 'approved';
+    mappedVerificationStatus = 'verified';
+  } else if (status === 'rejected') {
+    mappedStatus = 'rejected';
+    mappedVerificationStatus = 'rejected';
+  } else {
+    mappedStatus = 'pending';
+    mappedVerificationStatus = 'pending';
+  }
+
   await doctorsCollection.updateOne(
     { _id: new ObjectId(id) },
-    { $set: { status, updatedAt: new Date() } }
+    { 
+      $set: { 
+        status: mappedStatus, 
+        verificationStatus: mappedVerificationStatus, 
+        updatedAt: new Date() 
+      } 
+    }
   );
 
   const usersCollection = getUsersCollection();
-  if (status === 'approved') {
+  if (mappedStatus === 'approved') {
     // Elevate user role to doctor
     await usersCollection.updateOne(
       { _id: doctor.userId },
