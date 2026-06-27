@@ -8,5 +8,6 @@ router.use(verifyToken); // All prescription endpoints require auth
 router.post('/', verifyDoctor, prescriptionController.createPrescription);
 router.get('/', prescriptionController.getPrescriptions);
 router.get('/:id', prescriptionController.getPrescriptionById);
+router.put('/:id', verifyDoctor, prescriptionController.updatePrescription);
 
 module.exports = router;

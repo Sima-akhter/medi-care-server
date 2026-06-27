@@ -140,3 +140,28 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
     message: 'User deleted successfully.'
   });
 });
+
+// Get user details by ID (Admin or Self only)
+exports.getUserById = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid user ID format.', 400));
+  }
+
+  if (req.user.role !== 'admin' && req.user.id !== id) {
+    return next(new AppError('Forbidden: Access is denied.', 403));
+  }
+
+  const usersCollection = getUsersCollection();
+  const user = await usersCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!user) {
+    return next(new AppError('User not found.', 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: user
+  });
+});

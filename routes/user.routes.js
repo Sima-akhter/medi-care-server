@@ -8,6 +8,7 @@ router.put('/me', verifyToken, userController.updateMe);
 
 // Admin-only endpoints
 router.get('/', verifyToken, verifyAdmin, userController.getAllUsers);
+router.get('/:id', verifyToken, userController.getUserById);
 router.put('/:id/status', verifyToken, verifyAdmin, userController.updateUserStatusRole);
 router.delete('/:id', verifyToken, verifyAdmin, userController.deleteUser);
 

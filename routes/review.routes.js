@@ -5,5 +5,7 @@ const { verifyToken, verifyPatient } = require('../middlewares/auth.middleware')
 
 router.post('/', verifyToken, verifyPatient, reviewController.createReview);
 router.get('/doctor/:doctorId', reviewController.getDoctorReviews);
+router.put('/:id', verifyToken, verifyPatient, reviewController.updateReview);
+router.delete('/:id', verifyToken, reviewController.deleteReview);
 
 module.exports = router;

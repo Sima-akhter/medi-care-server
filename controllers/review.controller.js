@@ -97,3 +97,105 @@ exports.getDoctorReviews = asyncHandler(async (req, res, next) => {
     data: reviews
   });
 });
+
+// Update Review (Patient/Owner only)
+exports.updateReview = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { rating, comment } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid Review ID format.', 400));
+  }
+
+  const reviewsCollection = getReviewsCollection();
+  const review = await reviewsCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!review) {
+    return next(new AppError('Review not found.', 404));
+  }
+
+  // Verify that the logged-in patient is the author
+  if (review.patientId.toString() !== req.user.id) {
+    return next(new AppError('You do not have permission to edit this review.', 403));
+  }
+
+  const updateData = {};
+  if (rating !== undefined) {
+    const parsedRating = Number(rating);
+    if (isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return next(new AppError('Rating must be a numeric value between 1 and 5.', 400));
+    }
+    updateData.rating = parsedRating;
+  }
+
+  if (comment !== undefined) {
+    updateData.comment = comment;
+  }
+
+  updateData.updatedAt = new Date();
+
+  await reviewsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updateData }
+  );
+
+  // Re-calculate doctor ratings stats
+  const doctorsCollection = getDoctorsCollection();
+  const doctorReviews = await reviewsCollection.find({ doctorId: review.doctorId }).toArray();
+  const ratingCount = doctorReviews.length;
+  const avgRating = ratingCount > 0 ? doctorReviews.reduce((sum, rev) => sum + rev.rating, 0) / ratingCount : 0;
+  const roundedRating = Math.round(avgRating * 10) / 10;
+
+  await doctorsCollection.updateOne(
+    { _id: review.doctorId },
+    { $set: { rating: roundedRating, ratingCount } }
+  );
+
+  const updatedReview = await reviewsCollection.findOne({ _id: new ObjectId(id) });
+
+  res.status(200).json({
+    success: true,
+    message: 'Review updated successfully.',
+    data: updatedReview
+  });
+});
+
+// Delete Review (Patient/Owner or Admin only)
+exports.deleteReview = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid Review ID format.', 400));
+  }
+
+  const reviewsCollection = getReviewsCollection();
+  const review = await reviewsCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!review) {
+    return next(new AppError('Review not found.', 404));
+  }
+
+  // Only the patient who wrote it or an Admin can delete it
+  if (req.user.role !== 'admin' && review.patientId.toString() !== req.user.id) {
+    return next(new AppError('You do not have permission to delete this review.', 403));
+  }
+
+  await reviewsCollection.deleteOne({ _id: new ObjectId(id) });
+
+  // Re-calculate doctor ratings stats
+  const doctorsCollection = getDoctorsCollection();
+  const doctorReviews = await reviewsCollection.find({ doctorId: review.doctorId }).toArray();
+  const ratingCount = doctorReviews.length;
+  const avgRating = ratingCount > 0 ? doctorReviews.reduce((sum, rev) => sum + rev.rating, 0) / ratingCount : 0;
+  const roundedRating = Math.round(avgRating * 10) / 10;
+
+  await doctorsCollection.updateOne(
+    { _id: review.doctorId },
+    { $set: { rating: roundedRating, ratingCount } }
+  );
+
+  res.status(200).json({
+    success: true,
+    message: 'Review deleted successfully.'
+  });
+});

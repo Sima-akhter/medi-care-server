@@ -119,3 +119,54 @@ exports.getPrescriptionById = asyncHandler(async (req, res, next) => {
     data: prescription
   });
 });
+
+// Update prescription (Doctor only)
+exports.updatePrescription = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { medicines, advice } = req.body;
+
+  if (!ObjectId.isValid(id)) {
+    return next(new AppError('Invalid Prescription ID format.', 400));
+  }
+
+  const prescriptionsCollection = getPrescriptionsCollection();
+  const prescription = await prescriptionsCollection.findOne({ _id: new ObjectId(id) });
+
+  if (!prescription) {
+    return next(new AppError('Prescription not found.', 404));
+  }
+
+  // Fetch doctor profile associated with logged in user
+  const doctorsCollection = getDoctorsCollection();
+  const doctor = await doctorsCollection.findOne({ userId: new ObjectId(req.user.id) });
+
+  if (!doctor || prescription.doctorId.toString() !== doctor._id.toString()) {
+    return next(new AppError('You do not have permission to update this prescription.', 403));
+  }
+
+  const updateData = {};
+  if (medicines) {
+    if (!Array.isArray(medicines)) {
+      return next(new AppError('Medicines must be an array.', 400));
+    }
+    updateData.medicines = medicines;
+  }
+  if (advice !== undefined) {
+    updateData.advice = advice;
+  }
+
+  updateData.updatedAt = new Date();
+
+  await prescriptionsCollection.updateOne(
+    { _id: new ObjectId(id) },
+    { $set: updateData }
+  );
+
+  const updatedPrescription = await prescriptionsCollection.findOne({ _id: new ObjectId(id) });
+
+  res.status(200).json({
+    success: true,
+    message: 'Prescription updated successfully.',
+    data: updatedPrescription
+  });
+});
