@@ -58,9 +58,6 @@ exports.updateMe = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
   
   const { name, phone, gender, photo, image, profileImage } = req.body;
-  if (!name) {
-    return next(new AppError('Name field is required.', 400));
-  }
 
   const userQuery = {
     $or: [
@@ -69,14 +66,18 @@ exports.updateMe = asyncHandler(async (req, res, next) => {
     ]
   };
 
-  const updateFields = { name, updatedAt: new Date() };
+  const resolvedPhoto = photo || image || profileImage;
+  const updateFields = { updatedAt: new Date() };
+  if (name) updateFields.name = name;
   if (phone !== undefined) updateFields.phone = phone;
   if (gender !== undefined) updateFields.gender = gender;
-
-  const resolvedPhoto = photo || image || profileImage;
   if (resolvedPhoto !== undefined) {
     updateFields.photo = resolvedPhoto;
     updateFields.image = resolvedPhoto;
+  }
+
+  if (Object.keys(updateFields).length <= 1) { // only updatedAt means nothing was sent
+    return next(new AppError('Please provide at least one field to update.', 400));
   }
 
   await usersCollection.updateOne(

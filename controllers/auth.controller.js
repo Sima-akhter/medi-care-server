@@ -43,13 +43,10 @@ exports.createToken = asyncHandler(async (req, res, next) => {
     const result = await usersCollection.insertOne(newUser);
     user = { ...newUser, _id: result.insertedId };
   } else {
-    // Update user document custom fields if they exist in the request
+    // Update user document custom fields if they exist in the request.
+    // SECURITY: Role is NEVER updated from the request body here to prevent privilege escalation.
+    // Role changes are only permitted through the doctor verification API (PATCH /doctors/:id/verify).
     const updateFields = {};
-    
-    // Safety check: Never demote admin or doctor roles to patient
-    if (role && role !== 'patient' && user.role === 'patient') {
-      updateFields.role = role;
-    }
     
     if (phone) updateFields.phone = phone;
     if (gender) updateFields.gender = gender;
