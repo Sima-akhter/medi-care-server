@@ -91,6 +91,12 @@ exports.getDoctorById = asyncHandler(async (req, res, next) => {
     return next(new AppError('Doctor profile not found.', 404));
   }
 
+  // Ensure doctor is approved/verified for public viewing
+  const isApproved = doctor.verificationStatus === 'verified' || doctor.status === 'approved';
+  if (!isApproved) {
+    return next(new AppError('This doctor profile is not available publicly.', 403));
+  }
+
   res.status(200).json({
     success: true,
     data: doctor
@@ -151,7 +157,9 @@ exports.updateDoctorProfile = asyncHandler(async (req, res, next) => {
     consultationFee,
     hospitalName,
     profileImage,
-    bio 
+    bio,
+    availableDays,
+    availableSlots
   } = req.body;
 
   if (!ObjectId.isValid(id)) {
@@ -188,6 +196,13 @@ exports.updateDoctorProfile = asyncHandler(async (req, res, next) => {
   if (hospitalName) updateData.hospitalName = hospitalName;
   if (profileImage) updateData.profileImage = profileImage;
   if (bio !== undefined) updateData.bio = bio;
+  
+  if (availableDays !== undefined) {
+    updateData.availableDays = Array.isArray(availableDays) ? availableDays : [];
+  }
+  if (availableSlots !== undefined) {
+    updateData.availableSlots = Array.isArray(availableSlots) ? availableSlots : [];
+  }
 
   updateData.updatedAt = new Date();
 

@@ -1,5 +1,5 @@
 const { ObjectId } = require('mongodb');
-const { getUsersCollection } = require('../config/db');
+const { getUsersCollection, getDoctorsCollection } = require('../config/db');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/appError');
 
@@ -57,7 +57,7 @@ exports.updateMe = asyncHandler(async (req, res, next) => {
   const usersCollection = getUsersCollection();
   const userId = req.user.id;
   
-  const { name } = req.body;
+  const { name, phone, gender, photo, image, profileImage } = req.body;
   if (!name) {
     return next(new AppError('Name field is required.', 400));
   }
@@ -68,10 +68,40 @@ exports.updateMe = asyncHandler(async (req, res, next) => {
       { _id: userId }
     ]
   };
+
+  const updateFields = { name, updatedAt: new Date() };
+  if (phone !== undefined) updateFields.phone = phone;
+  if (gender !== undefined) updateFields.gender = gender;
+
+  const resolvedPhoto = photo || image || profileImage;
+  if (resolvedPhoto !== undefined) {
+    updateFields.photo = resolvedPhoto;
+    updateFields.image = resolvedPhoto;
+  }
+
   await usersCollection.updateOne(
     userQuery,
-    { $set: { name, updatedAt: new Date() } }
+    { $set: updateFields }
   );
+
+  // Sync to doctor profile if user is a doctor
+  if (req.user.role === 'doctor') {
+    const doctorsCollection = getDoctorsCollection();
+    const docUpdate = {};
+    if (name) {
+      docUpdate.name = name;
+      docUpdate.doctorName = name;
+    }
+    if (resolvedPhoto) {
+      docUpdate.profileImage = resolvedPhoto;
+    }
+    if (Object.keys(docUpdate).length > 0) {
+      await doctorsCollection.updateOne(
+        { userId: ObjectId.isValid(userId) ? new ObjectId(userId) : userId },
+        { $set: docUpdate }
+      );
+    }
+  }
 
   const updatedUser = await usersCollection.findOne(userQuery);
 
@@ -179,5 +209,45 @@ exports.getUserById = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: user
+  });
+});
+
+// Toggle Favorite Doctor (Patient only)
+exports.toggleFavoriteDoctor = asyncHandler(async (req, res, next) => {
+  const { doctorId } = req.body;
+  const userId = req.user.id;
+
+  if (!doctorId) {
+    return next(new AppError('Please provide a doctorId.', 400));
+  }
+
+  const usersCollection = getUsersCollection();
+  const userQuery = {
+    $or: [
+      ...(ObjectId.isValid(userId) ? [{ _id: new ObjectId(userId) }] : []),
+      { _id: userId }
+    ]
+  };
+
+  const user = await usersCollection.findOne(userQuery);
+  if (!user) {
+    return next(new AppError('User not found.', 404));
+  }
+
+  const favorites = user.favorites || [];
+  const hasFavorited = favorites.includes(doctorId);
+
+  if (hasFavorited) {
+    await usersCollection.updateOne(userQuery, { $pull: { favorites: doctorId } });
+  } else {
+    await usersCollection.updateOne(userQuery, { $addToSet: { favorites: doctorId } });
+  }
+
+  const updatedUser = await usersCollection.findOne(userQuery);
+
+  res.status(200).json({
+    success: true,
+    message: hasFavorited ? 'Doctor removed from favorites.' : 'Doctor added to favorites.',
+    data: updatedUser.favorites || []
   });
 });

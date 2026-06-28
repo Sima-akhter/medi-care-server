@@ -5,6 +5,7 @@ const { verifyToken, verifyAdmin } = require('../middlewares/auth.middleware');
 
 router.get('/me', verifyToken, userController.getMe);
 router.put('/me', verifyToken, userController.updateMe);
+router.put('/favorites', verifyToken, userController.toggleFavoriteDoctor);
 
 // Admin-only endpoints
 router.get('/', verifyToken, verifyAdmin, userController.getAllUsers);

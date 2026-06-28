@@ -34,6 +34,35 @@ exports.getPatientDashboard = asyncHandler(async (req, res, next) => {
     status: { $in: ['pending', 'confirmed'] }
   }).sort({ appointmentDate: 1, appointmentTime: 1 }).toArray();
 
+  // 5. Appointment History
+  const appointmentHistory = await appointmentsCol.find({
+    patientEmail,
+    status: { $in: ['completed', 'cancelled'] }
+  }).sort({ appointmentDate: -1, appointmentTime: -1 }).toArray();
+
+  // 6. Favorite Doctors
+  const usersCol = getUsersCollection();
+  const userQuery = {
+    $or: [
+      ...(ObjectId.isValid(req.user.id) ? [{ _id: new ObjectId(req.user.id) }] : []),
+      { _id: req.user.id }
+    ]
+  };
+  const user = await usersCol.findOne(userQuery);
+  const favoriteIds = (user && user.favorites) || [];
+
+  const doctorsCol = getDoctorsCollection();
+  let favoriteDoctors = [];
+  if (favoriteIds.length > 0) {
+    const objectIds = favoriteIds
+      .map(id => ObjectId.isValid(id) ? new ObjectId(id) : null)
+      .filter(Boolean);
+    
+    favoriteDoctors = await doctorsCol.find({
+      _id: { $in: objectIds }
+    }).toArray();
+  }
+
   res.status(200).json({
     success: true,
     data: {
@@ -43,6 +72,8 @@ exports.getPatientDashboard = asyncHandler(async (req, res, next) => {
         totalSpent
       },
       upcomingAppointments,
+      appointmentHistory,
+      favoriteDoctors,
       recentPayments: payments.slice(0, 5) // Return last 5 payments
     }
   });

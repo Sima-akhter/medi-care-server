@@ -104,7 +104,7 @@ exports.savePayment = asyncHandler(async (req, res, next) => {
     {
       $set: {
         paymentStatus: 'paid',
-        status: 'confirmed',
+        status: 'pending',
         updatedAt: new Date()
       }
     }

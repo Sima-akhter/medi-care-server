@@ -5,10 +5,10 @@ const AppError = require('../utils/appError');
 
 // Create a review for a doctor (Patient only)
 exports.createReview = asyncHandler(async (req, res, next) => {
-  const { doctorId, rating, comment } = req.body;
+  const { doctorId, rating, comment, appointmentId } = req.body;
 
-  if (!doctorId || !rating || !comment) {
-    return next(new AppError('Please provide doctorId, rating, and comment fields.', 400));
+  if (!doctorId || !rating || !comment || !appointmentId) {
+    return next(new AppError('Please provide doctorId, rating, comment, and appointmentId fields.', 400));
   }
 
   const parsedRating = Number(rating);
@@ -18,6 +18,10 @@ exports.createReview = asyncHandler(async (req, res, next) => {
 
   if (!ObjectId.isValid(doctorId)) {
     return next(new AppError('Invalid Doctor ID format.', 400));
+  }
+
+  if (!ObjectId.isValid(appointmentId)) {
+    return next(new AppError('Invalid Appointment ID format.', 400));
   }
 
   // 1. Verify doctor exists and is approved
@@ -30,28 +34,29 @@ exports.createReview = asyncHandler(async (req, res, next) => {
   // 2. Ensure patient has completed appointment with this doctor to leave review
   const appointmentsCollection = getAppointmentsCollection();
   const completedAppointment = await appointmentsCollection.findOne({
+    _id: new ObjectId(appointmentId),
     patientEmail: req.user.email,
     doctorId: new ObjectId(doctorId),
     status: 'completed'
   });
 
   if (!completedAppointment) {
-    return next(new AppError('You can only review doctors with whom you have completed appointments.', 403));
+    return next(new AppError('You can only review doctors for completed appointments associated with your profile.', 403));
   }
 
-  // 3. Prevent duplicate reviews by same patient for same doctor
+  // 3. Prevent duplicate reviews for the same appointment
   const reviewsCollection = getReviewsCollection();
   const existingReview = await reviewsCollection.findOne({
-    doctorId: new ObjectId(doctorId),
-    patientId: new ObjectId(req.user.id)
+    appointmentId: new ObjectId(appointmentId)
   });
 
   if (existingReview) {
-    return next(new AppError('You have already submitted a review for this doctor.', 400));
+    return next(new AppError('You have already submitted a review for this appointment.', 400));
   }
 
   // 4. Save review
   const newReview = {
+    appointmentId: new ObjectId(appointmentId),
     doctorId: new ObjectId(doctorId),
     patientId: new ObjectId(req.user.id),
     patientName: req.user.name,
@@ -207,5 +212,29 @@ exports.getAllReviews = asyncHandler(async (req, res, next) => {
   res.status(200).json({
     success: true,
     data: reviews
+  });
+});
+
+// Get reviews written by patient (Patient only)
+exports.getPatientReviews = asyncHandler(async (req, res, next) => {
+  const reviewsCollection = getReviewsCollection();
+  const reviews = await reviewsCollection.find({ patientId: new ObjectId(req.user.id) }).sort({ createdAt: -1 }).toArray();
+
+  const doctorsCollection = getDoctorsCollection();
+  const enrichedReviews = [];
+  
+  for (const rev of reviews) {
+    const doctor = await doctorsCollection.findOne({ _id: rev.doctorId });
+    enrichedReviews.push({
+      ...rev,
+      doctorName: doctor ? (doctor.name || doctor.doctorName) : 'Unknown Doctor',
+      doctorSpecialization: doctor ? doctor.specialization : 'General Medicine'
+    });
+  }
+
+  res.status(200).json({
+    success: true,
+    results: enrichedReviews.length,
+    data: enrichedReviews
   });
 });

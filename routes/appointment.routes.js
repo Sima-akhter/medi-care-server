@@ -8,5 +8,6 @@ router.use(verifyToken); // All appointment endpoints require authentication
 router.post('/', verifyPatient, appointmentController.createAppointment);
 router.get('/', appointmentController.getAppointments);
 router.patch('/:id/status', appointmentController.updateAppointmentStatus);
+router.patch('/:id/reschedule', verifyPatient, appointmentController.rescheduleAppointment);
 
 module.exports = router;
