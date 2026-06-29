@@ -28,8 +28,8 @@ app.use(
   cors({
     origin: [
       "https://medi-care-client-seven.vercel.app",
-      "http://localhost:3001",
-      process.env.CLIENT_URL || "http://localhost:3000",
+
+      // process.env.CLIENT_URL || "https://medi-care-client-seven.vercel.app",
     ].filter(Boolean),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -37,8 +37,8 @@ app.use(
   }),
 );
 // Middlewares
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(cookieParser());
 
 // Database connection middleware to ensure connection is ready before route handlers run (critical for serverless environments)
@@ -81,10 +81,9 @@ app.use(errorHandler);
 // 3. Local Development execution
 // Vercel ignores this, but it keeps your local 'npm run dev' working
 
-  app.listen(port, () => {
-    console.log(`MediCare Connect server is running locally on port ${port}`);
-  });
-
+app.listen(port, () => {
+  console.log(`MediCare Connect server is running locally on port ${port}`);
+});
 
 // Exporting for Vercel Serverless Functions
 module.exports = app;

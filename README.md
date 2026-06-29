@@ -31,6 +31,7 @@ CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 ## 🔒 JWT Authentication & Middleware Protection
 
 The backend uses a standard JSON Web Token system:
+
 1. **Bearer Authorization Parsing:** Client requests forward token strings inside header parameters: `Authorization: Bearer <token>`.
 2. **verifyToken:** Validates token signatures, decodes expiration claims, checks if the user is suspended/blocked, and sets `req.user` payload.
 3. **Role Guards:**
@@ -43,12 +44,13 @@ The backend uses a standard JSON Web Token system:
 ## 🗄️ Database Collections Design
 
 The system runs on native MongoDB collections:
-* **`users`:** Holds name, email, role, phone, gender, photo URL, status, and favorites array. (Email is indexed uniquely).
-* **`doctors`:** Holds bio, specialization, hospitalName, experience, consultationFee, availableDays, and availableSlots.
-* **`appointments`:** Logs scheduled time, status (pending, confirmed, completed, cancelled), paymentStatus (paid, unpaid), and symptoms.
-* **`reviews`:** Stores patient comments, ratings, and doctor ID links.
-* **`payments`:** Holds Stripe charge tokens, transaction ID, and amount records.
-* **`prescriptions`:** Holds diagnosis notes and medication dosages.
+
+- **`users`:** Holds name, email, role, phone, gender, photo URL, status, and favorites array. (Email is indexed uniquely).
+- **`doctors`:** Holds bio, specialization, hospitalName, experience, consultationFee, availableDays, and availableSlots.
+- **`appointments`:** Logs scheduled time, status (pending, confirmed, completed, cancelled), paymentStatus (paid, unpaid), and symptoms.
+- **`reviews`:** Stores patient comments, ratings, and doctor ID links.
+- **`payments`:** Holds Stripe charge tokens, transaction ID, and amount records.
+- **`prescriptions`:** Holds diagnosis notes and medication dosages.
 
 ---
 
@@ -62,4 +64,4 @@ The system runs on native MongoDB collections:
    ```bash
    npm run dev
    ```
-3. Base URL: `http://localhost:5000/api`.
+3. Base URL: `https://medi-care-server-liart.vercel.app/api`.
