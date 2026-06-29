@@ -21,21 +21,26 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // 1. Initialize Database Connection immediately at the top level.
-// Mongoose is smart enough to buffer requests until the connection is open.
+// Buffered by the driver until the connection is actually open.
 connectDB();
 
-app.use(
-  cors({
-    origin: [
-      "https://medi-care-client-seven.vercel.app",
+// CORS configuration — must be registered BEFORE routes and BEFORE body parsers
+const corsOptions = {
+  origin: [
+    "https://medi-care-client-seven.vercel.app",
+    process.env.CLIENT_URL,
+  ].filter(Boolean),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 200, // Some legacy browsers (IE11) choke on 204
+};
 
-      // process.env.CLIENT_URL || "https://medi-care-client-seven.vercel.app",
-    ].filter(Boolean),
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
+// CRITICAL: Handle OPTIONS preflight requests BEFORE any other middleware or routes.
+// Without this, cross-origin POST/PUT/PATCH/DELETE requests are blocked by browsers.
+app.options("*", cors(corsOptions));
+
+app.use(cors(corsOptions));
 // Middlewares
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));

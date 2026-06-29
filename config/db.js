@@ -12,8 +12,8 @@ try {
 const uri = process.env.MONGO_URI;
 
 if (!uri) {
-  console.error("MONGO_URI is not defined in environment variables.");
-  process.exit(1);
+  // process.exit() kills the entire Vercel serverless Lambda — throw instead
+  throw new Error("MONGO_URI is not defined in environment variables. Set it in Vercel dashboard under Environment Variables.");
 }
 
 const client = new MongoClient(uri, {
