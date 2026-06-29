@@ -19,6 +19,7 @@ const verifyToken = asyncHandler(async (req, res, next) => {
     return next(new AppError('Authentication token is missing. Please log in.', 401));
   }
 
+  // Decode token signature against JWT_SECRET key configured in .env variables
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET || 'medicare-secret-key-xyz-987');
