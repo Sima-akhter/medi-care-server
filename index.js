@@ -27,7 +27,7 @@ connectDB();
 app.use(
   cors({
     origin: [
-      "https://medicare-connect-client-iota.vercel.app",
+      "https://medi-care-client-seven.vercel.app",
       "http://localhost:3001",
       process.env.CLIENT_URL || "http://localhost:3000",
     ].filter(Boolean),
@@ -40,6 +40,16 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
+
+// Database connection middleware to ensure connection is ready before route handlers run (critical for serverless environments)
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Base check endpoint
 app.get("/", (req, res) => {

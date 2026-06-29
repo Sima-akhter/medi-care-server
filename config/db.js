@@ -22,30 +22,40 @@ const client = new MongoClient(uri, {
 });
 
 let db = null;
+let dbConnectionPromise = null;
 
 async function connectDB() {
-  try {
-    await client.connect();
-    db = client.db('mediCareConnect');
-    console.log("Successfully connected to MongoDB - Database: 'mediCareConnect'");
+  if (db) return db;
 
-    // Initialize indexes for performance and uniqueness
-    const users = db.collection('users');
-    await users.createIndex({ email: 1 }, { unique: true });
+  if (!dbConnectionPromise) {
+    dbConnectionPromise = client.connect()
+      .then(async () => {
+        db = client.db('mediCareConnect');
+        console.log("Successfully connected to MongoDB - Database: 'mediCareConnect'");
 
-    const doctors = db.collection('doctors');
-    await doctors.createIndex({ specialization: 1 });
-    await doctors.createIndex({ fee: 1 });
-    await doctors.createIndex({ rating: -1 });
+        // Initialize indexes for performance and uniqueness
+        const users = db.collection('users');
+        await users.createIndex({ email: 1 }, { unique: true });
 
-    const appointments = db.collection('appointments');
-    await appointments.createIndex({ patientEmail: 1 });
-    await appointments.createIndex({ doctorId: 1 });
+        const doctors = db.collection('doctors');
+        await doctors.createIndex({ specialization: 1 });
+        await doctors.createIndex({ fee: 1 });
+        await doctors.createIndex({ rating: -1 });
 
-  } catch (error) {
-    console.error("MongoDB connection failed:", error);
-    process.exit(1);
+        const appointments = db.collection('appointments');
+        await appointments.createIndex({ patientEmail: 1 });
+        await appointments.createIndex({ doctorId: 1 });
+
+        return db;
+      })
+      .catch((error) => {
+        console.error("MongoDB connection failed:", error);
+        dbConnectionPromise = null; // Reset cached promise so future requests can retry
+        throw error;
+      });
   }
+
+  return dbConnectionPromise;
 }
 
 function getCollection(name) {
