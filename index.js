@@ -15,6 +15,7 @@ const reviewRoutes = require("./routes/review.routes");
 const prescriptionRoutes = require("./routes/prescription.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const uploadRoutes = require("./routes/upload.routes");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -34,7 +35,8 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // Middlewares
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(cookieParser());
 
 // Base check endpoint
@@ -54,6 +56,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/prescriptions", prescriptionRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/uploads", uploadRoutes);
 
 // Catch-all route for undefined API endpoints
 app.use((req, res, next) => {
