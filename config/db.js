@@ -1,5 +1,13 @@
 const { MongoClient } = require('mongodb');
+const dns = require('dns');
 require('dotenv').config();
+
+// Configure fallback DNS servers defensively to prevent local network SRV lookup ETIMEOUTs
+try {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
+} catch (dnsErr) {
+  console.warn("Server DNS fallback configuration warning:", dnsErr.message);
+}
 
 const uri = process.env.MONGO_URI;
 
@@ -8,7 +16,10 @@ if (!uri) {
   process.exit(1);
 }
 
-const client = new MongoClient(uri);
+const client = new MongoClient(uri, {
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 5000
+});
 
 let db = null;
 
